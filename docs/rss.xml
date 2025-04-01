@@ -1,1 +1,2 @@
-<rss version="2.0"></rss>
+<?xml version='1.0' encoding='utf-8'?>
+<rss version="2.0"><channel><title>CISA KEV Catalog Updates</title><link>https://&lt;your-username&gt;.github.io/&lt;your-repo&gt;/rss.xml</link><description>This feed notifies when CISA updates the KEV catalog.</description><language>en-us</language><item><title>KEV Catalog Updated: </title><link>https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json</link><guid /><pubDate>Tue, 01 Apr 2025 16:59:26 GMT</pubDate><description>CISA updated the KEV catalog on .</description></item></channel></rss>
