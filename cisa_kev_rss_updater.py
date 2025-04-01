@@ -1,16 +1,14 @@
-# cisa_kev_rss_updater.py
-
 import requests
-import json
 import os
 from datetime import datetime
-from xml.etree.ElementTree import Element, SubElement, tostring, ElementTree
+from xml.etree.ElementTree import Element, SubElement, ElementTree
+import xml.etree.ElementTree as ET
 
 # Constants
 KEV_URL = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
 STATE_FILE = "last_release.txt"
 RSS_FILE = "docs/rss.xml"
-FEED_URL = "https://<your-username>.github.io/<your-repo>/rss.xml"
+FEED_URL = "https://desertvine.github.io/kev-update/rss.xml"
 
 # Helper: Load previous release date
 def load_last_release():
@@ -24,22 +22,55 @@ def save_last_release(date_str):
     with open(STATE_FILE, 'w') as f:
         f.write(date_str)
 
-# Helper: Create RSS feed
+# Helper: Create or update RSS feed with max 20 items
 def create_rss(updated_date):
+    MAX_ITEMS = 20
+    new_item = {
+        "title": f"KEV Catalog Updated: {updated_date}",
+        "link": KEV_URL,
+        "description": f"CISA updated the KEV catalog on {updated_date}.",
+        "guid": updated_date,
+        "pubDate": datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT')
+    }
+
+    items = []
+
+    # Load existing items from RSS file
+    if os.path.exists(RSS_FILE):
+        try:
+            tree = ET.parse(RSS_FILE)
+            root = tree.getroot()
+            for item in root.find('channel').findall('item'):
+                i = {
+                    "title": item.findtext("title"),
+                    "link": item.findtext("link"),
+                    "description": item.findtext("description"),
+                    "guid": item.findtext("guid"),
+                    "pubDate": item.findtext("pubDate")
+                }
+                items.append(i)
+        except Exception as e:
+            print(f"Error reading existing RSS: {e}")
+
+    # Insert new item and limit to 20
+    items.insert(0, new_item)
+    items = items[:MAX_ITEMS]
+
+    # Rebuild RSS feed
     rss = Element('rss', version='2.0')
     channel = SubElement(rss, 'channel')
-
     SubElement(channel, 'title').text = "CISA KEV Catalog Updates"
     SubElement(channel, 'link').text = FEED_URL
     SubElement(channel, 'description').text = "This feed notifies when CISA updates the KEV catalog."
     SubElement(channel, 'language').text = "en-us"
 
-    item = SubElement(channel, 'item')
-    SubElement(item, 'title').text = f"KEV Catalog Updated: {updated_date}"
-    SubElement(item, 'link').text = KEV_URL
-    SubElement(item, 'guid').text = updated_date
-    SubElement(item, 'pubDate').text = datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT')
-    SubElement(item, 'description').text = f"CISA updated the KEV catalog on {updated_date}."
+    for item in items:
+        entry = SubElement(channel, 'item')
+        SubElement(entry, 'title').text = item["title"]
+        SubElement(entry, 'link').text = item["link"]
+        SubElement(entry, 'description').text = item["description"]
+        SubElement(entry, 'guid').text = item["guid"]
+        SubElement(entry, 'pubDate').text = item["pubDate"]
 
     tree = ElementTree(rss)
     os.makedirs(os.path.dirname(RSS_FILE), exist_ok=True)
@@ -47,10 +78,15 @@ def create_rss(updated_date):
 
 # Main function
 def main():
-    response = requests.get(KEV_URL)
-    kev_data = response.json()
-    current_release_date = kev_data.get("releaseDate", "")
+    try:
+        response = requests.get(KEV_URL)
+        response.raise_for_status()
+        kev_data = response.json()
+    except Exception as e:
+        print(f"Error fetching KEV data: {e}")
+        return
 
+    current_release_date = kev_data.get("releaseDate", "")
     last_release_date = load_last_release()
 
     if current_release_date != last_release_date:
