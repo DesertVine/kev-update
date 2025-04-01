@@ -1,3 +1,5 @@
+# cisa_kev_rss_updater.py
+
 import requests
 import os
 from datetime import datetime
@@ -22,13 +24,26 @@ def save_last_release(date_str):
     with open(STATE_FILE, 'w') as f:
         f.write(date_str)
 
-# Helper: Create or update RSS feed with max 20 items
-def create_rss(updated_date):
+# Helper: Create or update RSS feed with max 20 items and CVE summary
+def create_rss(updated_date, kev_data):
     MAX_ITEMS = 20
+
+    # Extract new CVEs based on matching dateAdded
+    date_str = updated_date.split("T")[0]
+    new_cves = [
+        v["cveID"] for v in kev_data.get("vulnerabilities", [])
+        if v.get("dateAdded") == date_str
+    ]
+
+    if new_cves:
+        cve_summary = f"This update includes {len(new_cves)} new CVE(s): " + ", ".join(new_cves)
+    else:
+        cve_summary = "CISA updated the KEV catalog, but no specific CVEs matched the release date."
+
     new_item = {
-        "title": f"KEV Catalog Updated: {updated_date}",
+        "title": f"KEV Catalog Updated: {date_str}",
         "link": KEV_URL,
-        "description": f"CISA updated the KEV catalog on {updated_date}.",
+        "description": f"CISA updated the KEV catalog on {date_str}. {cve_summary}",
         "guid": updated_date,
         "pubDate": datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT')
     }
@@ -91,7 +106,7 @@ def main():
 
     if current_release_date != last_release_date:
         print(f"New update detected: {current_release_date}")
-        create_rss(current_release_date)
+        create_rss(current_release_date, kev_data)
         save_last_release(current_release_date)
     else:
         print("No new update.")
