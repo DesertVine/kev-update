@@ -101,7 +101,7 @@ def main():
         print(f"Error fetching KEV data: {e}")
         return
 
-    current_release_date = kev_data.get("releaseDate", "")
+    current_release_date = kev_data.get("dateReleased", "")
     last_release_date = load_last_release()
 
     if current_release_date != last_release_date:
